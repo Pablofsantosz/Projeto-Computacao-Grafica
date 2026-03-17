@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Space Invaders - 4 Linhas</title>
+    <title>Space Invaders - Transformações 2D</title>
     <style>
         body { background-color: #222; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; font-family: Arial, sans-serif; flex-direction: column; }
         canvas { background-color: #000; border: 2px solid #555; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
@@ -12,8 +12,7 @@
 <body>
 
     <div class="hud">
-       </b> Use ◄ ► e ESPAÇO<br>
-        
+        Use ◄ ► e ESPAÇO para jogar
     </div>
 
     <canvas id="gameCanvas" width="440" height="350"></canvas>
@@ -25,16 +24,15 @@
         const KEY_LEFT = 37, KEY_RIGHT = 39, KEY_SPACE = 32;
         let pressedKeys = {};
         let rockets = [];
-
+        let tempo = 0; 
         const ship = {
-            x: canvas.width / 2 - 10,
+            x: canvas.width / 2,
             y: canvas.height - 30,
             width: 22,
             height: 16,
             speed: 200
         };
 
-        
         let invaders = [];
         const rows = 4; 
         const cols = 9;
@@ -60,12 +58,12 @@
         });
 
         function fireRocket() {
-            rockets.push({ x: ship.x + ship.width / 2, y: ship.y, speed: 300 });
+            rockets.push({ x: ship.x, y: ship.y - 10, speed: 300 });
         }
 
         function update(dt) {
-            if (pressedKeys[KEY_LEFT] && ship.x > 0) ship.x -= ship.speed * dt;
-            if (pressedKeys[KEY_RIGHT] && ship.x < canvas.width - ship.width) ship.x += ship.speed * dt;
+            if (pressedKeys[KEY_LEFT] && ship.x > ship.width/2) ship.x -= ship.speed * dt;
+            if (pressedKeys[KEY_RIGHT] && ship.x < canvas.width - ship.width/2) ship.x += ship.speed * dt;
 
             for (let i = 0; i < rockets.length; i++) {
                 let r = rockets[i];
@@ -85,7 +83,6 @@
                         
                         inv.health -= 1; 
                         if (inv.health <= 0) inv.alive = false;
-
                         rockets.splice(i, 1);
                         i--;
                         break; 
@@ -94,7 +91,6 @@
             }
         }
 
-        // Cores baseadas na vida
         function getInvaderColor(health) {
             switch(health) {
                 case 4: return '#2E0854';
@@ -106,29 +102,50 @@
         }
 
         function draw() {
+            
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Nave
-            ctx.fillStyle = '#E0E0E0';
-            ctx.fillRect(ship.x, ship.y, ship.width, ship.height);
+            tempo += 0.05;
 
-            //  Inimigos
+            // Nave 
+            ctx.save(); 
+            ctx.translate(ship.x, ship.y);
+            ctx.fillStyle = '#E0E0E0';
+            
+            ctx.fillRect(-ship.width/2, -ship.height/2, ship.width, ship.height);
+            ctx.restore(); // Restaura estado anterior [cite: 181]
+
+            // Inimigos 
             invaders.forEach(inv => {
                 if (inv.alive) {
-                    ctx.fillStyle = getInvaderColor(inv.health);
-                    ctx.fillRect(inv.x, inv.y, inv.width, inv.height);
+                    ctx.save();
                     
+                    ctx.translate(inv.x + inv.width/2, inv.y + inv.height/2);
+                    
+                    
+                    let pulso = 1 + 0.08 * Math.sin(tempo);
+                    ctx.scale(pulso, pulso);
+
+                    ctx.fillStyle = getInvaderColor(inv.health);
+                    ctx.fillRect(-inv.width/2, -inv.height/2, inv.width, inv.height);
                     
                     ctx.fillStyle = "white";
                     ctx.font = "bold 10px Arial";
                     ctx.textAlign = "center";
-                    ctx.fillText(inv.health, inv.x + inv.width/2, inv.y + 13);
+                    ctx.fillText(inv.health, 0, 4);
+                    ctx.restore();
                 }
             });
 
-            // fogo
+            // Fogo 
             ctx.fillStyle = '#FF4444';
-            rockets.forEach(r => ctx.fillRect(r.x - 1, r.y, 2, 8));
+            rockets.forEach(r => {
+                ctx.save();
+                ctx.translate(r.x, r.y);
+                ctx.fillRect(-1, 0, 2, 8);
+                ctx.restore();
+            });
         }
 
         let lastTime = performance.now();
