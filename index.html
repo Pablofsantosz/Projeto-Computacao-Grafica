@@ -114,19 +114,24 @@
             ctx.fillStyle = '#E0E0E0';
             
             ctx.fillRect(-ship.width/2, -ship.height/2, ship.width, ship.height);
-            ctx.restore(); // Restaura estado anterior [cite: 181]
+            ctx.restore(); 
 
             // Inimigos 
             invaders.forEach(inv => {
                 if (inv.alive) {
                     ctx.save();
+                    // R 5: ROTAÇÃO/ESCALA 
                     
                     ctx.translate(inv.x + inv.width/2, inv.y + inv.height/2);
                     
+                    // R 2 e 3: ROTAÇÃO E ESCALA 
+                    let anguloInimigo = Math.sin(tempo * 2) * 0.15;
+                    ctx.rotate(anguloInimigo);
                     
                     let pulso = 1 + 0.08 * Math.sin(tempo);
                     ctx.scale(pulso, pulso);
 
+                    
                     ctx.fillStyle = getInvaderColor(inv.health);
                     ctx.fillRect(-inv.width/2, -inv.height/2, inv.width, inv.height);
                     
@@ -134,6 +139,7 @@
                     ctx.font = "bold 10px Arial";
                     ctx.textAlign = "center";
                     ctx.fillText(inv.health, 0, 4);
+                    
                     ctx.restore();
                 }
             });
@@ -147,7 +153,7 @@
                 ctx.restore();
             });
         }
-
+        //R6:requestAnimationFrame
         let lastTime = performance.now();
         function gameLoop(currentTime) {
             let dt = (currentTime - lastTime) / 1000;
