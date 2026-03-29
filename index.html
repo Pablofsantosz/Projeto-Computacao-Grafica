@@ -2,22 +2,10 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Space Invaders - Escala Global CG</title>
+    <title>Space Invaders - 360 Graus & Multicamadas</title>
     <style>
-        body { 
-            background-color: #111; 
-            margin: 0; 
-            overflow: hidden; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-        }
-        canvas { 
-            background-color: #000; 
-            /* A borda ajuda a ver o limite do jogo */
-            border: 2px solid #333; 
-        }
+        body { background-color: #111; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background-color: #000; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,255,255,0.1); }
     </style>
 </head>
 <body>
@@ -28,52 +16,54 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // --- CONFIGURAÇÃO DE RESOLUÇÃO LÓGICA (FIXA) ---
-        const LOGICAL_WIDTH = 440;
-        const LOGICAL_HEIGHT = 350;
+        // independente do tamanho da janela ela ficara travada em uma resolucao
+        const LOGICAL_WIDTH = 600;
+        const LOGICAL_HEIGHT = 600;
 
         const KEY_LEFT = 37, KEY_RIGHT = 39, KEY_SPACE = 32;
         let pressedKeys = {};
         let rockets = [];
         let tempo = 0; 
         
-        // Agora as variáveis são fixas para a resolução 440x350
+        // Nave centralizada
         const ship = {
-            x: LOGICAL_WIDTH / 2,
-            y: LOGICAL_HEIGHT - 30,
-            width: 22,
-            height: 16,
-            speed: 200
+            centerX: LOGICAL_WIDTH / 2,
+            centerY: LOGICAL_HEIGHT / 2,
+            angle: 0, // rotacao da nave
+            radius: 40,
+            width: 20,
+            height: 15,
+            speed: 4 //rotacao
         };
 
         let invaders = [];
-        const rows = 4; 
-        const cols = 9;
+        const layers = [
+            { count: 8, radius: 120, speed: 0.5, colorShift: 0 },
+            { count: 12, radius: 190, speed: -0.3, colorShift: 1 },
+            { count: 16, radius: 260, speed: 0.2, colorShift: 2 }
+        ];
 
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                let randomHealth = Math.floor(Math.random() * 4) + 1;
+        // multicamadas de inimigos 
+        layers.forEach((layer, layerIdx) => {
+            for (let i = 0; i < layer.count; i++) {
                 invaders.push({
-                    x: 45 + (c * 40),
-                    y: 40 + (r * 30),
-                    width: 25,
+                    layerIdx: layerIdx,
+                    angleOffset: (i * (Math.PI * 2 / layer.count)),
+                    x: 0, 
+                    y: 0, 
+                    width: 20,
                     height: 18,
-                    health: randomHealth,
+                    health: 4 - layerIdx, 
                     alive: true
                 });
             }
-        }
+        });
 
-        // --- LÓGICA DE ESCALA ---
         let scale = 1;
-
         function resize() {
-            // Calcula a escala baseada na menor dimensão da janela (aspect ratio)
             const scaleX = window.innerWidth / LOGICAL_WIDTH;
             const scaleY = window.innerHeight / LOGICAL_HEIGHT;
-            scale = Math.min(scaleX, scaleY); // Mantém a proporção sem cortar nada
-
-            // Define o tamanho real do canvas no navegador
+            scale = Math.min(scaleX, scaleY);
             canvas.width = LOGICAL_WIDTH * scale;
             canvas.height = LOGICAL_HEIGHT * scale;
         }
@@ -88,81 +78,107 @@
         });
 
         function fireRocket() {
-            rockets.push({ x: ship.x, y: ship.y - 10, speed: 300 });
+            // tiro sai e vai mirado
+            rockets.push({ 
+                x: ship.centerX + Math.cos(ship.angle) * ship.radius, 
+                y: ship.centerY + Math.sin(ship.angle) * ship.radius, 
+                vx: Math.cos(ship.angle) * 300,
+                vy: Math.sin(ship.angle) * 300
+            });
         }
 
         function update(dt) {
-            if (pressedKeys[KEY_LEFT] && ship.x > ship.width/2) ship.x -= ship.speed * dt;
-            if (pressedKeys[KEY_RIGHT] && ship.x < LOGICAL_WIDTH - ship.width/2) ship.x += ship.speed * dt;
+            // Movimento circular da nave 
+            if (pressedKeys[KEY_LEFT]) ship.angle -= ship.speed * dt;
+            if (pressedKeys[KEY_RIGHT]) ship.angle += ship.speed * dt;
 
+            tempo += dt;
+
+            //  inimigos 360
+            invaders.forEach(inv => {
+                if (inv.alive) {
+                    const layer = layers[inv.layerIdx];
+                    // Ângulo atual baseado no tempo e velocidade da camada
+                    let currentAngle = tempo * layer.speed + inv.angleOffset;
+                    
+                    inv.x = ship.centerX + Math.cos(currentAngle) * layer.radius;
+                    inv.y = ship.centerY + Math.sin(currentAngle) * layer.radius;
+                }
+            });
+
+            // Atualiza tiros
             for (let i = 0; i < rockets.length; i++) {
                 let r = rockets[i];
-                r.y -= r.speed * dt;
-                if (r.y < 0) { rockets.splice(i, 1); i--; continue; }
+                r.x += r.vx * dt;
+                r.y += r.vy * dt;
 
+                // Remove tiros fora da tela
+                if (r.x < 0 || r.x > LOGICAL_WIDTH || r.y < 0 || r.y > LOGICAL_HEIGHT) {
+                    rockets.splice(i, 1); i--; continue;
+                }
+
+                // Colisão
                 for (let j = 0; j < invaders.length; j++) {
                     let inv = invaders[j];
-                    if (inv.alive &&
-                        r.x > inv.x && r.x < inv.x + inv.width &&
-                        r.y > inv.y && r.y < inv.y + inv.height) {
-                        inv.health -= 1; 
-                        if (inv.health <= 0) inv.alive = false;
-                        rockets.splice(i, 1);
-                        i--;
-                        break; 
+                    if (inv.alive) {
+                        let dx = r.x - inv.x;
+                        let dy = r.y - inv.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < 15) {
+                            inv.health--;
+                            if (inv.health <= 0) inv.alive = false;
+                            rockets.splice(i, 1); i--; break;
+                        }
                     }
                 }
             }
         }
 
         function getInvaderColor(health) {
-            switch(health) {
-                case 4: return '#2E0854';
-                case 3: return '#005588'; 
-                case 2: return '#00AA00'; 
-                case 1: return '#88FF88'; 
-                default: return '#FFF';
-            }
+            const colors = { 4: '#FF00FF', 3: '#00FFFF', 2: '#00FF00', 1: '#FFFF00' };
+            return colors[health] || '#FFF';
         }
 
         function draw() {
-            // 1. Limpa a matriz e o canvas
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 2. APLICA A ESCALA GLOBAL
-            // Tudo o que for desenhado daqui para baixo será multiplicado por 'scale'
             ctx.scale(scale, scale);
 
-            tempo += 0.05;
-
-            // Nave 
-            ctx.save(); 
-            ctx.translate(ship.x, ship.y);
-            ctx.fillStyle = '#E0E0E0';
-            ctx.fillRect(-ship.width/2, -ship.height/2, ship.width, ship.height);
-            ctx.restore(); 
+            // Desenha a Nave no Centro 
+            ctx.save();
+            ctx.translate(ship.centerX, ship.centerY);
+            ctx.rotate(ship.angle);
+            // Corpo da nave
+            ctx.fillStyle = '#00CCFF';
+            ctx.beginPath();
+            ctx.moveTo(15, 0);
+            ctx.lineTo(-10, -10);
+            ctx.lineTo(-10, 10);
+            ctx.closePath();
+            ctx.fill();
+            // Canhão
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(10, -2, 10, 4);
+            ctx.restore();
 
             // Inimigos 
             invaders.forEach(inv => {
                 if (inv.alive) {
                     ctx.save();
-                    ctx.translate(inv.x + inv.width/2, inv.y + inv.height/2);
+                    ctx.translate(inv.x, inv.y);
                     
-                    let anguloInimigo = Math.sin(tempo * 2) * 0.15;
-                    ctx.rotate(anguloInimigo);
-                    
-                    let pulso = 1 + 0.08 * Math.sin(tempo);
-                    ctx.scale(pulso, pulso);
+                    // Faz o inimigo olhar para o centro (a nave)
+                    let angleToCenter = Math.atan2(ship.centerY - inv.y, ship.centerX - inv.x);
+                    ctx.rotate(angleToCenter + Math.PI/2);
 
                     ctx.fillStyle = getInvaderColor(inv.health);
                     ctx.fillRect(-inv.width/2, -inv.height/2, inv.width, inv.height);
                     
-                    ctx.fillStyle = "white";
+                    // Vida
+                    ctx.fillStyle = "black";
                     ctx.font = "bold 10px Arial";
                     ctx.textAlign = "center";
                     ctx.fillText(inv.health, 0, 4);
-                    
                     ctx.restore();
                 }
             });
@@ -170,10 +186,9 @@
             // Tiros 
             ctx.fillStyle = '#FF4444';
             rockets.forEach(r => {
-                ctx.save();
-                ctx.translate(r.x, r.y);
-                ctx.fillRect(-1, 0, 2, 8);
-                ctx.restore();
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, 3, 0, Math.PI * 2);
+                ctx.fill();
             });
         }
 
@@ -185,7 +200,6 @@
             draw();
             requestAnimationFrame(gameLoop);
         }
-
         requestAnimationFrame(gameLoop);
     </script>
 </body>
