@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Space Invaders - 360 Graus & Multicamadas</title>
+    <title>Space Invaders 360 - Victory Edition</title>
     <style>
         body { background-color: #111; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
         canvas { background-color: #000; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,255,255,0.1); }
@@ -16,7 +16,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // independente do tamanho da janela ela ficara travada em uma resolucao
         const LOGICAL_WIDTH = 600;
         const LOGICAL_HEIGHT = 600;
 
@@ -24,8 +23,9 @@
         let pressedKeys = {};
         let rockets = [];
         let tempo = 0; 
-        
-        // Geração das estrelas para o fundo
+        let gameWon = false; // Estado para controlar a vitória
+
+        // 1. Fundo Espacial (Estrelas)
         let stars = [];
         for (let i = 0; i < 80; i++) {
             stars.push({
@@ -36,40 +36,37 @@
             });
         }
 
-        // Nave centralizada
+        // 2. Configuração da Nave
         const ship = {
             centerX: LOGICAL_WIDTH / 2,
             centerY: LOGICAL_HEIGHT / 2,
-            angle: 0, // rotacao da nave
-            radius: 20, // Ajustado para o tiro sair da ponta
-            width: 20,
-            height: 15,
-            speed: 4 //rotacao
+            angle: 0,
+            radius: 20,
+            speed: 4 
         };
 
+        // 3. Configuração dos Inimigos (Camadas)
         let invaders = [];
         const layers = [
-            { count: 8, radius: 120, speed: 0.5, colorShift: 0 },
-            { count: 12, radius: 190, speed: -0.3, colorShift: 1 },
-            { count: 16, radius: 260, speed: 0.2, colorShift: 2 }
+            { count: 8, radius: 120, speed: 0.5 },
+            { count: 12, radius: 190, speed: -0.3 },
+            { count: 16, radius: 260, speed: 0.2 }
         ];
 
-        // multicamadas de inimigos 
         layers.forEach((layer, layerIdx) => {
             for (let i = 0; i < layer.count; i++) {
                 invaders.push({
                     layerIdx: layerIdx,
                     angleOffset: (i * (Math.PI * 2 / layer.count)),
-                    x: 0, 
-                    y: 0, 
-                    width: 20,
-                    height: 18,
+                    x: 0, y: 0,
+                    width: 20, height: 18,
                     health: 4 - layerIdx, 
                     alive: true
                 });
             }
         });
 
+        // 4. Redimensionamento
         let scale = 1;
         function resize() {
             const scaleX = window.innerWidth / LOGICAL_WIDTH;
@@ -78,75 +75,73 @@
             canvas.width = LOGICAL_WIDTH * scale;
             canvas.height = LOGICAL_HEIGHT * scale;
         }
-
         window.addEventListener('resize', resize);
         resize();
 
+        // 5. Controles
         window.addEventListener('keydown', e => pressedKeys[e.keyCode] = true);
         window.addEventListener('keyup', e => {
-            if (e.keyCode === KEY_SPACE) fireRocket();
+            if (e.keyCode === KEY_SPACE && !gameWon) fireRocket();
             delete pressedKeys[e.keyCode];
         });
 
         function fireRocket() {
-            // tiro sai e vai mirado - Ajustado para sair da ponta do canhão
             rockets.push({ 
                 x: ship.centerX + Math.cos(ship.angle) * 20, 
                 y: ship.centerY + Math.sin(ship.angle) * 20, 
-                // Velocidade aumentada para fluidez
-                vx: Math.cos(ship.angle) * 400, 
-                vy: Math.sin(ship.angle) * 400
+                vx: Math.cos(ship.angle) * 450, 
+                vy: Math.sin(ship.angle) * 450
             });
         }
 
+        // 6. Lógica do Jogo (Update)
         function update(dt) {
-            // Movimento circular da nave 
+            if (gameWon) return; // Trava o jogo ao vencer
+
             if (pressedKeys[KEY_LEFT]) ship.angle -= ship.speed * dt;
             if (pressedKeys[KEY_RIGHT]) ship.angle += ship.speed * dt;
 
             tempo += dt;
 
-            //  inimigos 360
+            // Movimentar inimigos em órbita
             invaders.forEach(inv => {
                 if (inv.alive) {
                     const layer = layers[inv.layerIdx];
                     let currentAngle = tempo * layer.speed + inv.angleOffset;
-                    
                     inv.x = ship.centerX + Math.cos(currentAngle) * layer.radius;
                     inv.y = ship.centerY + Math.sin(currentAngle) * layer.radius;
                 }
             });
 
-            // Atualiza tiros e checa colisão
+            // Processar tiros e colisões
             for (let i = rockets.length - 1; i >= 0; i--) {
                 let r = rockets[i];
                 r.x += r.vx * dt;
                 r.y += r.vy * dt;
 
-                // Remove tiros fora da tela
                 if (r.x < 0 || r.x > LOGICAL_WIDTH || r.y < 0 || r.y > LOGICAL_HEIGHT) {
                     rockets.splice(i, 1);
                     continue;
                 }
 
-                // Lógica de quebrar os quadradinhos e colisão
                 for (let j = 0; j < invaders.length; j++) {
                     let inv = invaders[j];
                     if (inv.alive) {
                         let dx = r.x - inv.x;
                         let dy = r.y - inv.y;
-                        let distanceSq = dx * dx + dy * dy;
-                        
-                        
-                        if (distanceSq < 200) { 
+                        if ((dx * dx + dy * dy) < 200) { 
                             inv.health--;
                             if (inv.health <= 0) inv.alive = false;
-                            rockets.splice(i, 1); // Remove o tiro ao impactar
+                            rockets.splice(i, 1);
                             break; 
                         }
                     }
                 }
             }
+
+            // Checar se todos morreram
+            const totalAlive = invaders.filter(inv => inv.alive).length;
+            if (totalAlive === 0) gameWon = true;
         }
 
         function getInvaderColor(health) {
@@ -154,48 +149,40 @@
             return colors[health] || '#FFF';
         }
 
+        // 7. Renderização (Draw)
         function draw() {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.scale(scale, scale);
 
-            //estrelas ao fundo
+            // Desenhar Estrelas
             stars.forEach(s => {
                 let opacity = 0.3 + Math.abs(Math.sin(tempo * s.blinkSpeed)) * 0.7;
                 ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
                 ctx.fillRect(s.x, s.y, s.size, s.size);
             });
 
-            // Desenha a Nave no Centro 
+            // Desenhar Nave
             ctx.save();
             ctx.translate(ship.centerX, ship.centerY);
             ctx.rotate(ship.angle);
-            // Corpo da nave
             ctx.fillStyle = '#00CCFF';
             ctx.beginPath();
-            ctx.moveTo(15, 0);
-            ctx.lineTo(-10, -10);
-            ctx.lineTo(-10, 10);
-            ctx.closePath();
-            ctx.fill();
-            // Canhão
+            ctx.moveTo(15, 0); ctx.lineTo(-10, -10); ctx.lineTo(-10, 10);
+            ctx.closePath(); ctx.fill();
             ctx.fillStyle = '#FFF';
             ctx.fillRect(10, -2, 10, 4);
             ctx.restore();
 
-            // Inimigos 
+            // Desenhar Inimigos
             invaders.forEach(inv => {
                 if (inv.alive) {
                     ctx.save();
                     ctx.translate(inv.x, inv.y);
-                    
                     let angleToCenter = Math.atan2(ship.centerY - inv.y, ship.centerX - inv.x);
                     ctx.rotate(angleToCenter + Math.PI/2);
-
                     ctx.fillStyle = getInvaderColor(inv.health);
                     ctx.fillRect(-inv.width/2, -inv.height/2, inv.width, inv.height);
-                    
-                    // Vida
                     ctx.fillStyle = "black";
                     ctx.font = "bold 10px Arial";
                     ctx.textAlign = "center";
@@ -204,15 +191,31 @@
                 }
             });
 
-            // Tiros 
+            // Desenhar Tiros
+            ctx.fillStyle = '#FF4444';
             rockets.forEach(r => {
-                ctx.fillStyle = '#FF4444';
                 ctx.beginPath();
                 ctx.arc(r.x, r.y, 4, 0, Math.PI * 2);
                 ctx.fill();
             });
+
+            // Tela de Vitória
+            if (gameWon) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+                ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+                ctx.textAlign = "center";
+                ctx.fillStyle = '#00FFFF';
+                ctx.font = "bold 45px Courier New";
+                ctx.fillText("MISSÃO CUMPRIDA", LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+                ctx.fillStyle = '#FFF';
+                ctx.font = "18px Arial";
+                ctx.fillText("Você eliminou a ameaça invasora!", LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 40);
+                ctx.font = "14px Arial";
+                ctx.fillText("Pressione F5 para reiniciar", LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 80);
+            }
         }
 
+        // 8. Loop Principal
         let lastTime = performance.now();
         function gameLoop(currentTime) {
             let dt = (currentTime - lastTime) / 1000;
