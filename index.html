@@ -25,6 +25,17 @@
         let rockets = [];
         let tempo = 0; 
         
+        // Geração das estrelas para o fundo
+        let stars = [];
+        for (let i = 0; i < 80; i++) {
+            stars.push({
+                x: Math.random() * LOGICAL_WIDTH,
+                y: Math.random() * LOGICAL_HEIGHT,
+                size: Math.random() * 1.5,
+                blinkSpeed: 1 + Math.random() * 3
+            });
+        }
+
         // Nave centralizada
         const ship = {
             centerX: LOGICAL_WIDTH / 2,
@@ -123,8 +134,8 @@
                     if (inv.alive) {
                         let dx = r.x - inv.x;
                         let dy = r.y - inv.y;
-                        let dist = Math.sqrt(dx*dx + dy*dy);
-                        if (dist < 15) {
+                        let distSq = Math.sqrt(dx * dx + dy * dy);
+                        if (distSq < 225) {
                             inv.health--;
                             if (inv.health <= 0) inv.alive = false;
                             rockets.splice(i, 1); i--; break;
@@ -143,6 +154,13 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.scale(scale, scale);
+
+            // estrelas no fundo
+            stars.forEach(s => {
+                let opacity = 0.3 + Math.abs(Math.sin(tempo * s.blinkSpeed)) * 0.7;
+                ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            });
 
             // Desenha a Nave no Centro 
             ctx.save();
