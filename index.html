@@ -41,7 +41,7 @@
             centerX: LOGICAL_WIDTH / 2,
             centerY: LOGICAL_HEIGHT / 2,
             angle: 0, // rotacao da nave
-            radius: 40,
+            radius: 20, // Ajustado para o tiro sair da ponta
             width: 20,
             height: 15,
             speed: 4 //rotacao
@@ -89,12 +89,13 @@
         });
 
         function fireRocket() {
-            // tiro sai e vai mirado
+            // tiro sai e vai mirado - Ajustado para sair da ponta do canhão
             rockets.push({ 
-                x: ship.centerX + Math.cos(ship.angle) * ship.radius, 
-                y: ship.centerY + Math.sin(ship.angle) * ship.radius, 
-                vx: Math.cos(ship.angle) * 300,
-                vy: Math.sin(ship.angle) * 300
+                x: ship.centerX + Math.cos(ship.angle) * 20, 
+                y: ship.centerY + Math.sin(ship.angle) * 20, 
+                // Velocidade aumentada para fluidez
+                vx: Math.cos(ship.angle) * 400, 
+                vy: Math.sin(ship.angle) * 400
             });
         }
 
@@ -109,7 +110,6 @@
             invaders.forEach(inv => {
                 if (inv.alive) {
                     const layer = layers[inv.layerIdx];
-                    // Ângulo atual baseado no tempo e velocidade da camada
                     let currentAngle = tempo * layer.speed + inv.angleOffset;
                     
                     inv.x = ship.centerX + Math.cos(currentAngle) * layer.radius;
@@ -117,28 +117,32 @@
                 }
             });
 
-            // Atualiza tiros
-            for (let i = 0; i < rockets.length; i++) {
+            // Atualiza tiros e checa colisão
+            for (let i = rockets.length - 1; i >= 0; i--) {
                 let r = rockets[i];
                 r.x += r.vx * dt;
                 r.y += r.vy * dt;
 
                 // Remove tiros fora da tela
                 if (r.x < 0 || r.x > LOGICAL_WIDTH || r.y < 0 || r.y > LOGICAL_HEIGHT) {
-                    rockets.splice(i, 1); i--; continue;
+                    rockets.splice(i, 1);
+                    continue;
                 }
 
-                // Colisão
+                // Lógica de quebrar os quadradinhos e colisão
                 for (let j = 0; j < invaders.length; j++) {
                     let inv = invaders[j];
                     if (inv.alive) {
                         let dx = r.x - inv.x;
                         let dy = r.y - inv.y;
-                        let distSq = Math.sqrt(dx * dx + dy * dy);
-                        if (distSq < 225) {
+                        let distanceSq = dx * dx + dy * dy;
+                        
+                        
+                        if (distanceSq < 200) { 
                             inv.health--;
                             if (inv.health <= 0) inv.alive = false;
-                            rockets.splice(i, 1); i--; break;
+                            rockets.splice(i, 1); // Remove o tiro ao impactar
+                            break; 
                         }
                     }
                 }
@@ -155,7 +159,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.scale(scale, scale);
 
-            // estrelas no fundo
+            //estrelas ao fundo
             stars.forEach(s => {
                 let opacity = 0.3 + Math.abs(Math.sin(tempo * s.blinkSpeed)) * 0.7;
                 ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
@@ -185,7 +189,6 @@
                     ctx.save();
                     ctx.translate(inv.x, inv.y);
                     
-                    // Faz o inimigo olhar para o centro (a nave)
                     let angleToCenter = Math.atan2(ship.centerY - inv.y, ship.centerX - inv.x);
                     ctx.rotate(angleToCenter + Math.PI/2);
 
@@ -202,10 +205,10 @@
             });
 
             // Tiros 
-            ctx.fillStyle = '#FF4444';
             rockets.forEach(r => {
+                ctx.fillStyle = '#FF4444';
                 ctx.beginPath();
-                ctx.arc(r.x, r.y, 3, 0, Math.PI * 2);
+                ctx.arc(r.x, r.y, 4, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
