@@ -176,13 +176,23 @@
 
             // Desenhar Inimigos
             invaders.forEach(inv => {
+                //let pulso = 1 + 0.1 * Math.sin(tempo * 5); 
+                //ctx.scale(pulso, pulso); 
+                
                 if (inv.alive) {
                     ctx.save();
                     ctx.translate(inv.x, inv.y);
+
+                    let pulso = 1 + 0.1 * Math.sin(tempo * 5); 
+                    ctx.scale(pulso, pulso); 
+        
                     let angleToCenter = Math.atan2(ship.centerY - inv.y, ship.centerX - inv.x);
                     ctx.rotate(angleToCenter + Math.PI/2);
+        
                     ctx.fillStyle = getInvaderColor(inv.health);
                     ctx.fillRect(-inv.width/2, -inv.height/2, inv.width, inv.height);
+
+
                     ctx.fillStyle = "black";
                     ctx.font = "bold 10px Arial";
                     ctx.textAlign = "center";
